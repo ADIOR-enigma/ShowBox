@@ -2,7 +2,7 @@
 #update 24-04-2024to run it without the ms py app need to remove all the properties of .env file 
 #(that means the file will not be secure to type user and password in front of a rachter)
 #update 20-06-2024but not now cause i have integrated "rich" module
-#520
+#500
 import time
 from rich.progress import track
 for i in track(range(15),description="[green]Loading..."):
@@ -111,6 +111,7 @@ def addRecord():
             with myConnection.cursor() as cursor:
                 console.print(Panel.fit("Select the category to add a record:", title="Add Record"))
                 options = (
+                    "[0] Exit",
                     "[1] ASeries",
                     "[2] AMovies",
                     "[3] NMovies",
@@ -119,6 +120,10 @@ def addRecord():
                 )
                 console.print("\n".join(options))
                 choice = input("Enter your choice: ")
+
+                if choice == '0':
+                    console.print(Panel.fit("Exiting the add record menu.", title="Exit", style="bold yellow"))
+                    break
 
                 tables = {
                     '1': "ASeries",
@@ -129,7 +134,7 @@ def addRecord():
                 }
                 table = tables.get(choice)
                 if not table:
-                    console.print(Panel.fit("Invalid choice.", title="Error", style="bold red"))
+                    console.print(Panel.fit("Invalid choice. Please try again.", title="Error", style="bold red"))
                     continue
                 
                 title = Prompt.ask("Enter title")
@@ -196,92 +201,121 @@ def viewAllRecords():
 
 def deleteRecord():
     try:
-        with myConnection.cursor() as cursor:
-            console.print(Panel.fit("Select the category from which to delete a record:", title="Delete Record"))
-            options = (
-                "[1] ASeries",
-                "[2] AMovies",
-                "[3] NMovies",
-                "[4] NSeries",
-                "[5] VdGames"
-            )
-            console.print("\n".join(options))
-            choice = Prompt.ask("Enter your choice")
+        while True:
+            with myConnection.cursor() as cursor:
+                console.print(Panel.fit("Select the category from which to delete a record:", title="Delete Record"))
+                options = (
+                    "[0] Exit",
+                    "[1] ASeries",
+                    "[2] AMovies",
+                    "[3] NMovies",
+                    "[4] NSeries",
+                    "[5] VdGames"
+                )
+                console.print("\n".join(options))
+                choice = Prompt.ask("Enter your choice")
 
-            tables = {
-                '1': "ASeries",
-                '2': "AMovies",
-                '3': "NMovies",
-                '4': "NSeries",
-                '5': "VdGames"
-            }
-            table = tables.get(choice)
-            if not table:
-                console.print(Panel.fit("Invalid choice.", title="Error", style="bold red"))
-                return
+                if choice == '0':
+                    console.print(Panel.fit("Exiting the delete record menu.", title="Exit", style="bold yellow"))
+                    break
 
-            record_id = Prompt.ask("Enter the ID of the record to delete")
-            if not record_id.isdigit():
-                console.print(Panel.fit("Invalid input for record ID. Please enter a numeric value.", title="Error", style="bold red"))
-                return  
+                tables = {
+                    '1': "ASeries",
+                    '2': "AMovies",
+                    '3': "NMovies",
+                    '4': "NSeries",
+                    '5': "VdGames"
+                }
+                table = tables.get(choice)
+                if not table:
+                    console.print(Panel.fit("Invalid choice. Please try again.", title="Error", style="bold red"))
+                    continue
 
-            sql = f"DELETE FROM {table} WHERE id = %s"
-            cursor.execute(sql, (record_id,))
-            myConnection.commit()
+                record_id = Prompt.ask("Enter the ID of the record to delete")
+                if not record_id.isdigit():
+                    console.print(Panel.fit("Invalid input for record ID. Please enter a numeric value.", title="Error", style="bold red"))
+                    continue
 
-            if cursor.rowcount > 0:
-                console.print(Panel.fit("Record deleted successfully!", title="Success", style="bold green"))
-            else:
-                console.print(Panel.fit("Record not found.", title="Error", style="bold red"))
+                sql = f"DELETE FROM {table} WHERE id = %s"
+                cursor.execute(sql, (record_id,))
+                myConnection.commit()
+
+                if cursor.rowcount > 0:
+                    console.print(Panel.fit("Record deleted successfully!", title="Success", style="bold green"))
+                else:
+                    console.print(Panel.fit("Record not found.", title="Error", style="bold red"))
+
+                if not Confirm.ask("Do you want to delete another record?"):
+                    break
     except Exception as e:
         console.print(Panel.fit(f"Something went wrong: {e}", title="Error", style="bold red"))
 
 def updateRecord():
     try:
-        with myConnection.cursor() as cursor:
-            console.print(Panel.fit("Select the category in which to update a record:", title="Update Record"))
-            options = (
-                "[1] ASeries",
-                "[2] AMovies",
-                "[3] NMovies",
-                "[4] NSeries",
-                "[5] VdGames"
-            )
-            console.print("\n".join(options))
-            choice = Prompt.ask("Enter your choice")
-            
-            if choice == '1' or choice == '4':
-                table = "ASeries" if choice == '1' else "NSeries"
-                update_fields = "title, status, episodes, seasons"
-            elif choice == '2' or choice == '3':
-                table = "AMovies" if choice == '2' else "NMovies"
-                update_fields = "title, status, movies"
-            elif choice == '5':
-                table = "VdGames"
-                update_fields = "title, status, platform"
-            else:
-                console.print(Panel.fit("Invalid choice.", title="Error", style="bold red"))
-                return
-            
-            record_id = Prompt.ask("Enter the ID of the record to update")
-            console.print(f"Enter new values for {update_fields}")
-            values = Prompt.ask("Enter values separated by commas (e.g., Title, Status, 10, 2)").split(',')
-            
-            if choice in ['1', '4']:  # Anime Series or Series
-                sql = f"UPDATE {table} SET title = %s, status = %s, episodes = %s, seasons = %s WHERE id = %s"
-            elif choice == '5':  # VdGames
-                sql = f"UPDATE {table} SET title = %s, status = %s, platform = %s WHERE id = %s"
-            else:  # Movies or Netflix Movies
-                sql = f"UPDATE {table} SET title = %s, status = %s, movies = %s WHERE id = %s"
-            
-            values.append(record_id)  # Add record_id at the end for the WHERE clause
-            cursor.execute(sql, values)
-            myConnection.commit()
-            
-            if cursor.rowcount > 0:
-                console.print(Panel.fit("Record updated successfully!", title="Success", style="bold green"))
-            else:
-                console.print(Panel.fit("Record not found or no changes made.", title="Error", style="bold red"))
+        while True:
+            with myConnection.cursor() as cursor:
+                console.print(Panel.fit("Select the category in which to update a record:", title="Update Record"))
+                options = (
+                    "[0] Exit",
+                    "[1] ASeries",
+                    "[2] AMovies",
+                    "[3] NMovies",
+                    "[4] NSeries",
+                    "[5] VdGames"
+                )
+                console.print("\n".join(options))
+                choice = Prompt.ask("Enter your choice")
+
+                if choice == '0':
+                    console.print(Panel.fit("Exiting the update record menu.", title="Exit", style="bold yellow"))
+                    break
+
+                tables = {
+                    '1': "ASeries",
+                    '2': "AMovies",
+                    '3': "NMovies",
+                    '4': "NSeries",
+                    '5': "VdGames"
+                }
+
+                if choice in tables:
+                    table = tables[choice]
+                    if choice in ['1', '4']:
+                        update_fields = "title, status, episodes, seasons"
+                    elif choice in ['2', '3']:
+                        update_fields = "title, status, movies"
+                    elif choice == '5':
+                        update_fields = "title, status, platform"
+                else:
+                    console.print(Panel.fit("Invalid choice. Please try again.", title="Error", style="bold red"))
+                    continue
+
+                record_id = Prompt.ask("Enter the ID of the record to update")
+                if not record_id.isdigit():
+                    console.print(Panel.fit("Invalid input for record ID. Please enter a numeric value.", title="Error", style="bold red"))
+                    continue
+
+                console.print(f"Enter new values for {update_fields}")
+                values = Prompt.ask("Enter values separated by commas (e.g., Title, Status, 10, 2)").split(',')
+
+                if choice in ['1', '4']:  # ASeries or NSeries
+                    sql = f"UPDATE {table} SET title = %s, status = %s, episodes = %s, seasons = %s WHERE id = %s"
+                elif choice == '5':  # VdGames
+                    sql = f"UPDATE {table} SET title = %s, status = %s, platform = %s WHERE id = %s"
+                else:  # AMovies or NMovies
+                    sql = f"UPDATE {table} SET title = %s, status = %s, movies = %s WHERE id = %s"
+
+                values.append(record_id)  # Add record_id at the end for the WHERE clause
+                cursor.execute(sql, values)
+                myConnection.commit()
+
+                if cursor.rowcount > 0:
+                    console.print(Panel.fit("Record updated successfully!", title="Success", style="bold green"))
+                else:
+                    console.print(Panel.fit("Record not found and no changes made.", title="Error", style="bold red"))
+
+                if not Confirm.ask("Do you want to update another record?"):
+                    break
     except Exception as e:
         console.print(Panel.fit(f"Something went wrong: {e}", title="Error", style="bold red"))
 
@@ -398,10 +432,13 @@ def main():
             elif choice == '5':
                 searchRecord()
             elif choice == '6':
-                console.print(Panel.fit("Thank you for using this application. Have a great day🤖!", title="Goodbye", border_style="green"))
-                for i in track(range(15),description="[red]Exiting..."):
-                    time.sleep(0.1)
-                break
+                if Confirm.ask("Do you want to exit?"):
+                    console.print(Panel.fit("Thank you for using this application. Have a great day🤖!", title="Goodbye", border_style="green"))
+                    for i in track(range(15),description="[red]Exiting..."):
+                        time.sleep(0.1)
+                    break    
+                else:
+                    continue
             else:
                 console.print(Panel.fit("Invalid choice. Please try again.", title="Error", style="bold red"))
     else:
@@ -423,6 +460,38 @@ if __name__ == "__main__":
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
 
 
