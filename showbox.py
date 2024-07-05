@@ -20,7 +20,6 @@ load_dotenv()
 
 # Global variables for MySQL connection
 myConnection = None
-userName = ""
 passWord = ""
 
 console = Console()
