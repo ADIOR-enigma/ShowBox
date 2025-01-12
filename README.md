@@ -1,4 +1,4 @@
-# A_N_DB - Personalized Showbox
+# A_N_DB - YOUR Personalized Showbox
 ![Screenshot 2025-01-12 215726](https://github.com/user-attachments/assets/db1cfad8-6561-4fb7-90a8-fa2fb8ce644d)
 A Python-based command-line database management system for keeping track of series and movies using MySQL.
 
