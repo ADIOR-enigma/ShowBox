@@ -15,6 +15,7 @@ passWord = ""
 console = Console()
 
 def MYSQLconnectionCheck():
+    global myConnection
     global passWord
     try:
         passWord = os.getenv("MYSQL_PASSWORD") or Prompt.ask("Password", password=True)
@@ -125,7 +126,7 @@ def addRecord():
                 continue
 
             if table == "ASeries" or table == "NSeries":
-                episodes = Prompt.ask("Enter number of episodes", default="0")
+                episodes = Prompt.ask("Enter number of episodes")
                 cursor.execute(f"INSERT INTO {table} (title, status, episodes) VALUES (%s, %s, %s)", (title, status, episodes))
             else:
                 cursor.execute(f"INSERT INTO {table} (title, status) VALUES (%s, %s)", (title, status))
@@ -336,52 +337,53 @@ def searchRecord():
 
 def getTotalData():
     try:
-        cursor = myConnection.cursor()  # Create the cursor
+        cursor = myConnection.cursor()
 
-        # Query to get total episodes and seasons from ASeries
-        cursor.execute("SELECT SUM(episodes) AS total_episodes, COUNT(*) AS total_seasons FROM ASeries")
-        a_series_totals = cursor.fetchone()
+        # Get totals for ASeries
+        cursor.execute("SELECT SUM(episodes), COUNT(*) FROM ASeries")
+        result_a = cursor.fetchone()
+        total_episodes_a = result_a[0] if result_a[0] is not None else 0
+        total_seasons_a = result_a[1] if result_a[1] is not None else 0
 
-        # Query to get total episodes and seasons from NSeries
-        cursor.execute("SELECT SUM(episodes) AS total_episodes, COUNT(*) AS total_seasons FROM NSeries")
-        n_series_totals = cursor.fetchone()
+        # Get totals for NSeries
+        cursor.execute("SELECT SUM(episodes), COUNT(*) FROM NSeries")
+        result_n = cursor.fetchone()
+        total_episodes_n = result_n[0] if result_n[0] is not None else 0
+        total_seasons_n = result_n[1] if result_n[1] is not None else 0
 
-        # Query to get total movies from AMovies
-        cursor.execute("SELECT COUNT(*) AS total_movies FROM AMovies")
+        # Get total movies count
+        cursor.execute("SELECT COUNT(*) FROM AMovies")
         total_movies_a = cursor.fetchone()[0] or 0
 
-        # Query to get total movies from NMovies
-        cursor.execute("SELECT COUNT(*) AS total_movies FROM NMovies")
+        cursor.execute("SELECT COUNT(*) FROM NMovies")
         total_movies_n = cursor.fetchone()[0] or 0
 
-        # Return a tuple of totals
-        return (
-            (a_series_totals[0] if a_series_totals and a_series_totals[0] is not None else 0,
-             a_series_totals[1] if a_series_totals and a_series_totals[1] is not None else 0),  # ASeries totals (episodes, seasons)
-            (n_series_totals[0] if n_series_totals and n_series_totals[0] is not None else 0,
-             n_series_totals[1] if n_series_totals and n_series_totals[1] is not None else 0),  # NSeries totals (episodes, seasons)
-            total_movies_a + total_movies_n  # Combined total movies
-        )
+        # Return the totals, ensuring no NoneType errors occur
+        return ((total_episodes_a, total_seasons_a),
+                (total_episodes_n, total_seasons_n),
+                (total_movies_a, total_movies_n))
     except ms.Error as e:
         console.print(Panel.fit(f"Failed to calculate totals: {e}", title="Error", style="bold red"))
-        return ((0, 0), (0, 0), 0)  # Return a tuple of zeros if there's an error
+        return ((0, 0), (0, 0), (0, 0))
     finally:
-        cursor.close()  # Ensure the cursor is closed
+        cursor.close()
+
+
 
 # Main function to run the application
 def main():
     global myConnection
-    myConnection = MYSQLconnectionCheck()
+    MYSQLconnectionCheck()
     if myConnection:
         createTables()
         while True:
             # Get total episodes, seasons, and movies
-            (total_episodes_a, total_seasons_a), (total_episodes_n, total_seasons_n), total_movies = getTotalData()
+            (total_episodes_a, total_seasons_a), (total_episodes_n, total_seasons_n), (total_movies_a, total_movies_n) = getTotalData()
 
             # Calculate combined totals
             combined_total_episodes = total_episodes_a + total_episodes_n
             combined_total_seasons = total_seasons_a + total_seasons_n
-            combined_total_movies = total_movies
+            combined_total_movies = total_movies_a + total_movies_n
 
             # Display all totals in a single box
             totals_message = (
@@ -391,8 +393,8 @@ def main():
                 f"[bold blue]Total Seasons in NSeries: {total_seasons_n}[/bold blue]\n"
                 f"[bold magenta]Combined Total Episodes: {combined_total_episodes}[/bold magenta]\n"
                 f"[bold magenta]Combined Total Seasons: {combined_total_seasons}[/bold magenta]\n"
-                f"[bold yellow]Total Movies in AMovies: {total_movies // 2}[/bold yellow]\n"  # Assuming total_movies is the sum of both
-                f"[bold yellow]Total Movies in NMovies: {total_movies // 2}[/bold yellow]\n"  # Assuming total_movies is the sum of both
+                f"[bold yellow]Total Movies in AMovies: {total_movies_a}[/bold yellow]\n"  # Assuming total_movies is the sum of both
+                f"[bold yellow]Total Movies in NMovies: {total_movies_n}[/bold yellow]\n"  # Assuming total_movies is the sum of both
                 f"[bold red]Combined Total Movies: {combined_total_movies}[/bold red]"
             )
 
@@ -427,9 +429,9 @@ def main():
                 console.print(Panel.fit("Invalid choice. Please try again.", title="Error", style="bold red"))
         myConnection.close()
 
-
 if __name__ == "__main__":
     main()
+
 
 
 
